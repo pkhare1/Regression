@@ -8,5 +8,86 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+# Executive Summary
 
-fuck youuuu
+Using the mtcars dataset, we investigated whether automatic or manual transmissions are associated with differences in miles per gallon (MPG) and quantified the magnitude of this difference. While unadjusted analyses suggested higher MPG for manual vehicles, multivariate linear regression models adjusting for key confounders such as vehicle weight and engine configuration showed no statistically significant difference in MPG between transmission types. After adjustment, the estimated MPG difference between manual and automatic transmissions was close to zero, with confidence intervals that included zero, indicating substantial uncertainty and no clear evidence favoring either transmission. In contrast, vehicle weight and number of cylinders were strongly and consistently associated with MPG. Overall, the analysis suggests that observed differences in fuel efficiency are primarily driven by vehicle characteristics rather than transmission type itself.
+
+## Exploratory Data Analysis
+### We will first examine the various aspects of the mtcars dataset
+
+Below, we will examine the aspects of automobile design in the mtcars dataset, focusing specifically on the mpg and am datasets:
+```{r, echo=FALSE}
+data(mtcars)
+names(mtcars)
+```
+The summary of mpg is as follows:
+```{r, echo=FALSE}
+summary(mtcars$mpg)
+```
+The contents of am are are follows:
+```{r,echo=FALSE}
+table(mtcars$am)
+mtcars$am <- factor(mtcars$am, labels = c("Automatic", "Manual"))
+boxplot(mtcars$mpg~mtcars$am,main="MPG vs Transmission",xlab="Transmission",ylab="MPG (Miles/US Gallon)")
+```
+
+Finally, here is a table showing clear differences between auto and manual transmissions
+```{r, echo=FALSE}
+with(mtcars, tapply(mpg, am, mean))
+```
+
+### Now we will fit a linear model and interpret the coefficients of that model to answer the two questions on hand
+
+```{r,echo=FALSE}
+linfit <- lm(mtcars$mpg ~ factor(mtcars$am))
+```
+The coefficient (representing the mean MPG) for automatic transmission is `r coef(linfit)[1]` and that of automatic to manual transmission is `r coef(linfit)[2]`. Thus, the MPG increases by this amount (the difference) as the transmission changes from automatic to manual, meaning that the latter is better for MPG.
+
+The uncertainty (standard error) of this difference is `r coef(summary(linfit))[,"Std. Error"][2]` and the pvalue is `r coef(summary(linfit))[,"Pr(>|t|)"][2]`, meaning that the difference is significant.
+Furthermore, the 95% confidence interval for the MPG difference between automatic and manual transmission is `r confint(linfit)[2,]`. As this is entirely above 0, the difference is significant at the 5% level.
+
+### Let's fit the residual and diagnostic plots for this linear model now
+``` {r, echo=FALSE}
+par(mfrow=c(2,2))
+plot(linfit)
+par(mfrow=c(1,1))
+```
+
+As seen above, the residuals are spread evenly around 0 and the Q-Q plot is a straight line indicating that model is a good fit.
+
+### Let us now examine the effects of confounding factors which may affect the MPG but we have not considered yet
+#### First, we will fit and examine the model which includes weight as a confounding factor
+```{r,echo=FALSE}
+linfitwt = lm(mtcars$mpg ~ mtcars$am + mtcars$wt)
+linfitcyl = lm(mtcars$mpg ~ mtcars$am + mtcars$cyl)
+linfitwtcyl = lm(mtcars$mpg ~ mtcars$am + mtcars$wt + mtcars$cyl)
+```
+
+#### Weight as confounding factor
+The model fitting transmission and weight both presents an interesting story. Firstly, if we look at the coefficient for manual transmission now: `r coef(linfitwt)[2]`, it is negligible (very close to 0) and not significant (`r coef(summary(linfitwt))[,"Pr(>|t|)"][2]`). Now, let's look at the coefficient for weight: `r coef(linfitwt)[3]` and its significance: `r coef(summary(linfitwt))[,"Pr(>|t|)"][3]`.
+
+This tells us that the presence of the confounding factor- weight produces the significant change in MPG and transmission actually doesn't. Thus, what the univariate model reveals as a significant relationship is actually attributable to the relationship between weight and MPG rather than transmission.
+
+#### Number of Cylinders as confounding factor
+* Coefficient and p-value of manual transmission: `r coef(linfitcyl)[2]` and `r coef(summary(linfitcyl))[,"Pr(>|t|)"][2]`
+* Coefficient and p-value of number of cylinders: `r coef(linfitcyl)[3]` and `r coef(summary(linfitcyl))[,"Pr(>|t|)"][3]`
+
+Again, transmission is not the determinant for MPG but number of cylinders (which are closely related to the weight as well)
+
+#### Weight and number of cylinders both as confounding factors
+* Coefficient and p-value of manual transmission: `r coef(linfitwtcyl)[2]` and `r coef(summary(linfitwtcyl))[,"Pr(>|t|)"][2]`
+* Coefficient and p-value of number of weight: `r coef(linfitwtcyl)[3]` and `r coef(summary(linfitwtcyl))[,"Pr(>|t|)"][3]`
+* Coefficient and p-value of number of cylinders: `r coef(linfitwtcyl)[4]` and `r coef(summary(linfitwtcyl))[,"Pr(>|t|)"][4]`
+
+So, weight and cylinder have similar effect on MPG (magnitude and significance) and transmission does not have a significant effect.
+
+Let's quickly take a look at the residuals and diagnostics for these three models now
+``` {r, echo=FALSE}
+par(mfrow=c(2,2))
+plot(linfitwt)
+plot(linfitcyl)
+plot(linfitwtcyl)
+par(mfrow=c(1,1))
+```
+
+All of these models are, thus, good fits for the data and do not show the presence of outliers, heteroscedasticity or nonlinearity
